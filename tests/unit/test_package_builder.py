@@ -17,6 +17,20 @@ def test_package_builder_success_without_required_media(app_config: object) -> N
     assert len(refs) == 2
 
 
+def test_package_builder_extracts_real_title_from_revised_template(app_config: object) -> None:
+    metadata = StateStore(app_config).create_task(task("task-1"))
+    artifacts = ArtifactStore(app_config)
+    artifacts.save_markdown(
+        "task-1",
+        "drafts",
+        "revised",
+        "# 润色稿\n\n## 标题候选\n\n- 真实标题\n\n## 正文\n\n正文 #健康 #科普\n\n## 标签建议\n\n#健康 #科普\n",
+    )
+    package, _ = PackageBuilder(artifacts, FormatRules.load(app_config)).build(metadata, user_confirmed=True)
+    assert package.title == "真实标题"
+    assert package.body == "正文 #健康 #科普"
+
+
 def test_package_builder_fails_when_required_cover_missing(app_config: object) -> None:
     app_config.format_rules.config_path = "missing.toml"
     rules = FormatRules.load(app_config)

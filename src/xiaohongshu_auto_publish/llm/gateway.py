@@ -53,14 +53,17 @@ class LLMGateway:
         last_error: Exception | None = None
         for attempt in range(self._config.llm.max_retries + 1):
             try:
-                response = self._client.chat.completions.create(
-                    model=self._config.llm.model,
-                    messages=[
+                params: dict[str, Any] = {
+                    "model": self._config.llm.model,
+                    "messages": [
                         {"role": "system", "content": request.system_prompt},
                         {"role": "user", "content": request.user_prompt},
                     ],
-                    temperature=request.temperature,
-                )
+                    "temperature": request.temperature,
+                }
+                if request.response_format == "json":
+                    params["response_format"] = {"type": "json_object"}
+                response = self._client.chat.completions.create(**params)
                 text = response.choices[0].message.content or ""
                 usage = getattr(response, "usage", None)
                 return LLMResponse(

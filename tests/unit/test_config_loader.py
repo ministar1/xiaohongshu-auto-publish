@@ -39,3 +39,14 @@ def test_invalid_override_key_raises(tmp_path: Path, monkeypatch: pytest.MonkeyP
     monkeypatch.chdir(tmp_path)
     with pytest.raises(ConfigError):
         load_config(overrides=["llm.unknown=value"])
+
+
+def test_empty_llm_model_raises(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "config.toml").write_text("[llm]\nmodel=''\n", encoding="utf-8")
+    with pytest.raises(ConfigError) as exc_info:
+        load_config(
+            tmp_path / "config.toml",
+            env={"XHS_AGENT_LLM_API_KEY": "secret", "XHS_AGENT_TAVILY_API_KEY": "search"},
+        )
+    assert "llm.model" in exc_info.value.detail

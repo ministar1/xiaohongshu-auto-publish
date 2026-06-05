@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 
 from xiaohongshu_auto_publish.artifacts.store import ArtifactStore
 from xiaohongshu_auto_publish.errors import MediaValidationError
 from xiaohongshu_auto_publish.media.manifest import MediaManifest, MediaValidationStage
 from xiaohongshu_auto_publish.models import ArtifactRef, PublishPackage, TaskMetadata
+from xiaohongshu_auto_publish.post_fields import extract_post_fields
 from xiaohongshu_auto_publish.rules.format_rules import FormatRules
 
 
@@ -28,17 +28,17 @@ class PackageBuilder:
         if source is None:
             raise MediaValidationError("缺少发布稿件", "没有 revised 或 draft 产物", retryable=True)
         doc = self._artifacts.read_markdown(source)
-        title, body, hashtags, cover_title = _extract_package_fields(doc.body)
+        fields = extract_post_fields(doc.body)
         manifest = MediaManifest.load(self._artifacts.task_dir(task.task_id))
         media_result = manifest.validate(MediaValidationStage.PACKAGE, require_cover=self._rules.require_cover)
         media_validation_passed = media_result.passed
         can_publish = media_validation_passed and user_confirmed
         package = PublishPackage(
-            title=title,
-            body=body,
-            hashtags=hashtags,
+            title=fields.title,
+            body=fields.body,
+            hashtags=fields.hashtags,
             media_items=manifest.items,
-            cover_title=cover_title,
+            cover_title=fields.cover_title,
             source_records=[],
             review_summary="内容审核和格式审核摘要请见 reviews/ 目录",
             media_validation_passed=media_validation_passed,
@@ -62,6 +62,7 @@ class PackageBuilder:
                 "title": package.title,
                 "body": package.body,
                 "hashtags": package.hashtags,
+                "cover_title": package.cover_title,
                 "media_validation_passed": package.media_validation_passed,
                 "user_confirmed": package.user_confirmed,
                 "can_publish": package.can_publish,
@@ -90,10 +91,3 @@ class PackageBuilder:
             f"media_validation_passed: {str(package.media_validation_passed).lower()}\n\n"
             "## 素材问题\n\n" + ("\n".join(f"- {item}" for item in media_issues) if media_issues else "- 无") + "\n"
         )
-
-
-def _extract_package_fields(text: str) -> tuple[str, str, list[str], str]:
-    lines = [line.strip() for line in text.splitlines()]
-    title = next((line.lstrip("# ").strip() for line in lines if line), "")
-    hashtags = re.findall(r"#([\w\u4e00-\u9fff-]+)", text)
-    return title, text, hashtags, title[:20]

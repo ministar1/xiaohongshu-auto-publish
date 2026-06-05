@@ -24,9 +24,9 @@ from xiaohongshu_auto_publish.errors import ConfigError
 ENV_KEY_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 CONFIG_TEMPLATE = """[llm]
-provider = "openai-compatible"
-base_url = "https://api.openai.com/v1"
-model = ""
+provider = "deepseek"
+base_url = "https://api.deepseek.com"
+model = "deepseek-v4-flash"
 api_key_env = "XHS_AGENT_LLM_API_KEY"
 timeout_seconds = 60
 max_retries = 2
@@ -70,6 +70,7 @@ require_confirm_before_publish = true
 
 ENV_EXAMPLE_TEMPLATE = """XHS_AGENT_LLM_API_KEY=
 XHS_AGENT_TAVILY_API_KEY=
+XHS_AGENT_LLM_MODEL=deepseek-v4-flash
 """
 
 SOURCE_POLICY_TEMPLATE = """[trusted_sources]
@@ -196,6 +197,10 @@ def check_required_secrets(config: AppConfig) -> list[str]:
 
 
 def validate_config(config: AppConfig) -> None:
+    if not config.llm.model.strip():
+        raise ConfigError("配置值非法", "llm.model 不能为空")
+    if not config.llm.base_url.strip():
+        raise ConfigError("配置值非法", "llm.base_url 不能为空")
     if config.llm.timeout_seconds <= 0 or config.search.timeout_seconds <= 0:
         raise ConfigError("配置值非法", "timeout_seconds 必须为正数")
     if config.llm.max_retries < 0:
@@ -238,9 +243,9 @@ def init_project(root: Path, overwrite: bool = False) -> list[Path]:
 def _default_raw() -> dict[str, object]:
     return {
         "llm": {
-            "provider": "openai-compatible",
-            "base_url": "https://api.openai.com/v1",
-            "model": "",
+            "provider": "deepseek",
+            "base_url": "https://api.deepseek.com",
+            "model": "deepseek-v4-flash",
             "api_key_env": "XHS_AGENT_LLM_API_KEY",
             "timeout_seconds": 60,
             "max_retries": 2,

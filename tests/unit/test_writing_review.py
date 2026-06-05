@@ -22,3 +22,19 @@ def test_writing_review_outputs_revised_and_report(app_config: object) -> None:
     )
     refs = service.review(metadata)
     assert [ref.kind for ref in refs] == ["revised", "writing_review"]
+
+
+def test_writing_review_keeps_string_confirmation_as_one_item(app_config: object) -> None:
+    metadata = StateStore(app_config).create_task(task("task-1"))
+    artifacts = ArtifactStore(app_config)
+    artifacts.save_markdown("task-1", "drafts", "draft", "# 标题\n正文")
+    service = WritingReviewService(
+        app_config,
+        FakeLLMGateway(['{"title_candidates":"标题1","body":"正文 #健康","hashtags":"健康","confirmation_required":"确认医学表达"}']),
+        artifacts,
+        AccountProfileService(app_config),
+    )
+    refs = service.review(metadata)
+    revised = artifacts.read_markdown(refs[0])
+    assert "- 确认医学表达" in revised.body
+    assert "- 确\n" not in revised.body

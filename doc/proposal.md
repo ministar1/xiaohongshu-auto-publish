@@ -492,7 +492,7 @@ DeepSeek 可通过同一套配置方式切换：
 ```env
 LLM_PROVIDER=deepseek
 LLM_BASE_URL=https://api.deepseek.com
-LLM_MODEL=
+LLM_MODEL=deepseek-v4-flash
 LLM_API_KEY=
 ```
 
@@ -560,4 +560,3 @@ API Key 不应出现在源码、需求文档示例值或版本控制记录中。
 5. 是否需要人工专家复核流程。
 6. 是否需要支持定时发布、草稿箱管理和发布后数据回收。
 7. 是否需要保存完整的选题库、系列规划和历史内容复盘。
-

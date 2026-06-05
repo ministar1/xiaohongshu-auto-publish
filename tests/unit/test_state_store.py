@@ -26,6 +26,16 @@ def test_record_failure_and_retry(app_config: object) -> None:
     assert store.increment_retry("task-1", "package") == 1
 
 
+def test_success_status_clears_previous_failure(app_config: object) -> None:
+    store = StateStore(app_config)
+    store.create_task(task("task-1"))
+    store.record_failure("task-1", "package", StateError("失败", "detail", retryable=True))
+    store.update_status("task-1", TaskStatus.PACKAGE_READY)
+    metadata = store.get_task("task-1")
+    assert metadata.last_failed_stage is None
+    assert metadata.last_error is None
+
+
 def test_corrupt_task_json_raises(app_config: object) -> None:
     store = StateStore(app_config)
     store.create_task(task("task-1"))

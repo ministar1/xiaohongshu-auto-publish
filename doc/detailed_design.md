@@ -30,7 +30,7 @@
 | 依赖 | 用途 | 说明 |
 | --- | --- | --- |
 | `typer` | CLI 框架 | 默认命令行入口，建议固定主版本范围 |
-| `openai` | OpenAI-compatible LLM 调用 | OpenAI、DeepSeek 和兼容服务统一接入，第一版应固定到已验证的次版本范围，例如 `>=1.40.0,<1.50.0`；升级前以兼容测试通过版本为准 |
+| `openai` | OpenAI-compatible LLM 调用 | OpenAI、DeepSeek 和兼容服务统一接入，第一版应固定到已验证的次版本范围，例如 `>=1.56,<2`；升级前以兼容测试通过版本为准 |
 | `tavily-python` | Tavily 联网检索 | 默认搜索实现，应通过接口替换，建议固定主版本范围 |
 | `PyYAML` | Markdown YAML front matter 解析 | 仅用于阶段文件元数据，读取时必须使用 `yaml.safe_load()` |
 | `filelock` | 跨平台文件锁 | 用于任务产物、状态文件和资产索引写入保护；优先使用成熟库，避免第一版手写 `fcntl`/`msvcrt` 适配 |
@@ -266,9 +266,9 @@ xhs-agent import ./article.md \
 
 ```toml
 [llm]
-provider = "openai-compatible"
-base_url = "https://api.openai.com/v1"
-model = ""
+provider = "deepseek"
+base_url = "https://api.deepseek.com"
+model = "deepseek-v4-flash"
 api_key_env = "XHS_AGENT_LLM_API_KEY"
 timeout_seconds = 60
 max_retries = 2

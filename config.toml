@@ -1,7 +1,7 @@
 [llm]
-provider = "openai-compatible"
-base_url = "https://api.openai.com/v1"
-model = ""
+provider = "deepseek"
+base_url = "https://api.deepseek.com"
+model = "deepseek-v4-flash"
 api_key_env = "XHS_AGENT_LLM_API_KEY"
 timeout_seconds = 60
 max_retries = 2

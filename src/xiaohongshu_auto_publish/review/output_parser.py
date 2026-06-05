@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from xiaohongshu_auto_publish.errors import (
@@ -70,10 +71,9 @@ def _parse_issue(raw: object, index: int, warnings: list[str]) -> ReviewIssue:
             raise StructuredOutputRiskFieldError("审核问题缺少关键风险字段", f"issues[{index}].{field}")
     if not isinstance(raw["blocking"], bool):
         raise StructuredOutputRiskFieldError("审核问题 blocking 类型错误", f"issues[{index}].blocking")
-    try:
-        severity = Severity(str(raw["severity"]))
-    except ValueError as exc:
-        raise StructuredOutputRiskFieldError("审核问题 severity 非法", f"issues[{index}].severity") from exc
+    severity = _parse_severity(raw["severity"])
+    if severity is None:
+        raise StructuredOutputRiskFieldError("审核问题 severity 非法", f"issues[{index}].severity")
     if "location" not in raw:
         warnings.append(f"issues[{index}] 缺少 location")
     if "quote" not in raw:
@@ -88,6 +88,25 @@ def _parse_issue(raw: object, index: int, warnings: list[str]) -> ReviewIssue:
         suggestion=str(raw["suggestion"]),
         blocking=blocking,
     )
+
+
+def _parse_severity(raw: object) -> Severity | None:
+    value = str(raw).strip().upper()
+    if value in Severity:
+        return Severity(value)
+    match = re.search(r"\bS[0-3]\b", value)
+    if match:
+        return Severity(match.group(0))
+    chinese_mapping = {
+        "严重": Severity.S0,
+        "高风险": Severity.S1,
+        "中风险": Severity.S2,
+        "轻微": Severity.S3,
+    }
+    for marker, severity in chinese_mapping.items():
+        if marker in str(raw):
+            return severity
+    return None
 
 
 def _safe_excerpt(text: str) -> str:

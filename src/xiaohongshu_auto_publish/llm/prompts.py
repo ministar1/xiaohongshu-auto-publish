@@ -74,20 +74,28 @@ def default_prompt_registry() -> PromptRegistry:
             ),
             PromptTemplate(
                 prompt_id="content_review",
-                version="2026-06-04.1",
+                version="2026-06-06.1",
                 schema_id="content_review_output",
                 schema_version=1,
                 template=(
-                    "你是医学健康内容审核助手。请输出 JSON：summary、blocking、issues。"
-                    "issues 中包含 issue_type、severity、risk、blocking、suggestion、location、quote。"
+                    "你是医学健康内容审核助手。必须只输出合法 JSON object，不要输出 Markdown。"
+                    "根字段必须包含 summary、blocking、issues。"
+                    "issues 中每项必须包含 issue_type、severity、risk、blocking、suggestion、location、quote。"
+                    "severity 只能是字符串 S0、S1、S2、S3 之一，不要附加中文说明。"
+                    '示例：{"summary":"审核摘要","blocking":false,"issues":[{"issue_type":"证据不足","severity":"S2","risk":"风险说明","blocking":false,"suggestion":"修改建议","location":"段落","quote":"原文"}]}'
                 ),
             ),
             PromptTemplate(
                 prompt_id="writing_review",
-                version="2026-06-04.1",
+                version="2026-06-06.1",
                 schema_id="writing_review_output",
                 schema_version=1,
-                template=("你是小红书医学科普写作助手。请在不新增医学事实和不夸大疗效的前提下润色。"),
+                template=(
+                    "你是小红书医学科普写作助手。必须只输出合法 JSON object，不要输出 Markdown。"
+                    "请在不新增医学事实和不夸大疗效的前提下润色。"
+                    "根字段建议包含 title_candidates、body、hashtags、opening_notes、conversion_notes、"
+                    "interaction_notes、account_fit、series_suggestions、changes、confirmation_required。"
+                ),
             ),
             PromptTemplate(
                 prompt_id="format_helper",

@@ -8,6 +8,7 @@ from xiaohongshu_auto_publish.input.normalizer import InputNormalizer
 from xiaohongshu_auto_publish.llm.gateway import LLMGateway
 from xiaohongshu_auto_publish.orchestration.orchestrator import WorkflowOrchestrator
 from xiaohongshu_auto_publish.package.builder import PackageBuilder
+from xiaohongshu_auto_publish.publish.manual import ManualPublisher
 from xiaohongshu_auto_publish.research.service import ResearchService
 from xiaohongshu_auto_publish.review.content import ContentReviewService
 from xiaohongshu_auto_publish.review.format import FormatReviewService
@@ -26,6 +27,7 @@ def build_orchestrator(config: AppConfig) -> WorkflowOrchestrator:
     format_rules = FormatRules.load(config)
     format_review = FormatReviewService(artifact_store, format_rules)
     package_builder = PackageBuilder(artifact_store, format_rules)
+    publisher = ManualPublisher()
 
     if check_required_secrets(config):
         return WorkflowOrchestrator(
@@ -34,6 +36,7 @@ def build_orchestrator(config: AppConfig) -> WorkflowOrchestrator:
             normalizer=normalizer,
             format_review_service=format_review,
             package_builder=package_builder,
+            publisher=publisher,
         )
 
     llm_gateway = LLMGateway(config)
@@ -52,6 +55,7 @@ def build_orchestrator(config: AppConfig) -> WorkflowOrchestrator:
         writing_review_service=WritingReviewService(config, llm_gateway, artifact_store, account_service),
         format_review_service=format_review,
         package_builder=package_builder,
+        publisher=publisher,
     )
 
 

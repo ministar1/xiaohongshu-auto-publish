@@ -78,9 +78,10 @@ Copy-Item .env.example .env
 ```env
 XHS_AGENT_LLM_API_KEY=
 XHS_AGENT_TAVILY_API_KEY=
+XHS_AGENT_LLM_MODEL=deepseek-v4-flash
 ```
 
-默认配置文件是 [config.toml](config.toml)。密钥读取优先级是：
+默认配置文件是 [config.toml](config.toml)，LLM 默认使用 DeepSeek OpenAI-compatible API。密钥读取优先级是：
 
 1. 默认配置
 2. `config.toml`

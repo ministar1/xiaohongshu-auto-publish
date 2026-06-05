@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 
 from xiaohongshu_auto_publish.artifacts.store import ArtifactStore
 from xiaohongshu_auto_publish.media.manifest import MediaManifest, MediaValidationStage
 from xiaohongshu_auto_publish.models import TaskMetadata
 from xiaohongshu_auto_publish.orchestration.orchestrator import FormatReviewResult
+from xiaohongshu_auto_publish.post_fields import extract_post_fields
 from xiaohongshu_auto_publish.rules.format_rules import FormatRules, RuleSeverity
 
 
@@ -40,8 +40,8 @@ class FormatReviewService:
             )
             return FormatReviewResult(True, False, ["缺少可审核稿件"], [report])
         doc = self._artifacts.read_markdown(source)
-        title, body, hashtags, cover_title = _extract_post_fields(doc.body)
-        rule_issues = self._rules.check_text(title, body, hashtags)
+        fields = extract_post_fields(doc.body)
+        rule_issues = self._rules.check_text(fields.title, fields.body, fields.hashtags)
         manifest = MediaManifest.load(self._artifacts.task_dir(task.task_id))
         media_result = manifest.validate(MediaValidationStage.FORMAT, require_cover=self._rules.require_cover)
         issues = [
@@ -64,7 +64,7 @@ class FormatReviewService:
             task.task_id,
             "reviews",
             "format_review",
-            _render_format_report(title, body, hashtags, cover_title, issues),
+            _render_format_report(fields.title, fields.body, fields.hashtags, fields.cover_title, issues),
             source_artifacts=[source.artifact_id],
             user_editable=True,
         )
@@ -74,14 +74,6 @@ class FormatReviewService:
             warnings=[item.message for item in issues if item.severity == RuleSeverity.WARN],
             artifacts=[report],
         )
-
-
-def _extract_post_fields(text: str) -> tuple[str, str, list[str], str]:
-    lines = [line.strip() for line in text.splitlines()]
-    title = next((line.lstrip("# ").strip() for line in lines if line), "")
-    hashtags = re.findall(r"#([\w\u4e00-\u9fff-]+)", text)
-    cover_title = title[:20]
-    return title, text, hashtags, cover_title
 
 
 def _render_format_report(

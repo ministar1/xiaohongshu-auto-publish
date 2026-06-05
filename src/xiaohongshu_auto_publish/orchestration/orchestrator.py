@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
 from xiaohongshu_auto_publish.artifacts.store import ArtifactStore
-from xiaohongshu_auto_publish.errors import ReviewBlockedError, StateError, XHSError
+from xiaohongshu_auto_publish.errors import PublishError, ReviewBlockedError, StateError, XHSError
 from xiaohongshu_auto_publish.input.normalizer import (
     ArticleInputRequest,
     InputNormalizer,
@@ -20,6 +21,7 @@ from xiaohongshu_auto_publish.models import (
     TaskStatus,
 )
 from xiaohongshu_auto_publish.orchestration.states import phase_to_status, retry_target
+from xiaohongshu_auto_publish.publish.base import PublishResult
 from xiaohongshu_auto_publish.state.store import StateStore
 
 
@@ -53,16 +55,6 @@ class FormatReviewResult:
     requires_confirmation: bool
     warnings: list[str]
     artifacts: list[ArtifactRef]
-
-
-@dataclass(frozen=True, slots=True)
-class PublishResult:
-    success: bool
-    channel: str
-    message: str
-    retryable: bool = False
-    published_url: str | None = None
-    raw_artifact_path: Path | None = None
 
 
 @dataclass(slots=True)
@@ -171,7 +163,10 @@ class WorkflowOrchestrator:
             if not yes:
                 return self.get_status(task_id)
             self._state.update_status(task_id, TaskStatus.FORMAT_REVIEWING, stage="format", user_confirmed=True)
-            return self.review_format(task_id)
+            result = self.review_format(task_id)
+            if result.status == TaskStatus.PACKAGE_READY:
+                return self.build_package(task_id, user_confirmed=yes)
+            return result
         if task.status == TaskStatus.WAITING_FORMAT_CONFIRM:
             if not yes:
                 return self.get_status(task_id)
@@ -334,8 +329,27 @@ class WorkflowOrchestrator:
             raise StateError("发布前必须确认", "--yes 不能替代发布确认参数")
         if self._publisher is None:
             return self.get_status(task_id)
+        package = self._load_publish_package(task)
         self._state.update_status(task_id, TaskStatus.PUBLISHING, stage="publish", user_confirmed=True)
-        raise StateError("缺少发布包读取实现", "请先生成发布包并使用 ManualPublisher")
+        result = self._publisher.publish(package, confirmed=confirmed)
+        if result.success:
+            self._state.update_status(
+                task_id,
+                TaskStatus.PUBLISHED,
+                stage="publish",
+                summary=result.message,
+                user_confirmed=True,
+            )
+            status = self.get_status(task_id)
+            status.warnings.append(result.message)
+            return status
+        self._state.record_failure(
+            task_id,
+            "publish",
+            PublishError(result.message, retryable=result.retryable, stage="publish"),
+            TaskStatus.PUBLISH_FAILED,
+        )
+        return self.get_status(task_id)
 
     def retry_task(self, task_id: str, prompt_policy: str = "locked") -> WorkflowResult:
         task = self._state.get_task(task_id)
@@ -375,7 +389,7 @@ class WorkflowOrchestrator:
         return WorkflowResult(
             status=task.status,
             artifact_paths=paths,
-            next_command=_next_command(task),
+            next_command=_next_command(task, refs),
             failure_summary=task.last_error.summary if task.last_error else None,
             task_id=task_id,
         )
@@ -383,18 +397,61 @@ class WorkflowOrchestrator:
     def list_tasks(self) -> list[TaskMetadata]:
         return self._state.list_tasks()
 
+    def _load_publish_package(self, task: TaskMetadata) -> PublishPackage:
+        manifest = self._artifacts.latest(task.task_id, stage="package", kind="publish_manifest")
+        if manifest is None:
+            raise StateError(
+                "缺少发布清单",
+                "请先执行 xhs-agent package <task_id> --yes 生成最终发布包",
+                next_action=f"xhs-agent package {task.task_id} --yes",
+            )
+        path = self._artifacts.task_dir(task.task_id) / manifest.path
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise StateError("发布清单无法读取", str(path), related_artifacts=[path]) from exc
+        return PublishPackage(
+            title=str(raw.get("title", "")),
+            body=str(raw.get("body", "")),
+            hashtags=[str(item) for item in raw.get("hashtags", [])],
+            media_items=[],
+            cover_title=str(raw.get("cover_title", raw.get("title", "")))[:20],
+            source_records=[],
+            review_summary="内容审核和格式审核摘要请见 reviews/ 目录",
+            media_validation_passed=bool(raw.get("media_validation_passed", False)),
+            user_confirmed=bool(raw.get("user_confirmed", False)),
+            can_publish=bool(raw.get("can_publish", False)),
+        )
 
-def _next_command(task: TaskMetadata) -> str | None:
+
+def _next_command(task: TaskMetadata, artifacts: list[ArtifactRef] | None = None) -> str | None:
+    if task.status == TaskStatus.PACKAGE_READY:
+        if _has_current_publish_manifest(artifacts or []):
+            return f"xhs-agent publish {task.task_id}"
+        return f"xhs-agent package {task.task_id} --yes"
     mapping = {
         TaskStatus.WAITING_RESEARCH_EDIT: f"xhs-agent continue {task.task_id}",
         TaskStatus.CONTENT_BLOCKED: f"xhs-agent review-content {task.task_id}",
         TaskStatus.CONTENT_PASSED_WITH_WARNINGS: f"xhs-agent continue {task.task_id} --yes",
         TaskStatus.WAITING_DRAFT_EDIT: f"xhs-agent continue {task.task_id} --yes",
         TaskStatus.WAITING_FORMAT_CONFIRM: f"xhs-agent continue {task.task_id} --yes",
-        TaskStatus.PACKAGE_READY: f"xhs-agent publish {task.task_id}",
         TaskStatus.RESEARCH_FAILED: f"xhs-agent retry {task.task_id}",
         TaskStatus.WRITING_FAILED: f"xhs-agent retry {task.task_id}",
         TaskStatus.FORMAT_BLOCKED: f"xhs-agent review-format {task.task_id}",
         TaskStatus.FAILED: f"xhs-agent retry {task.task_id}",
     }
     return mapping.get(task.status)
+
+
+def _has_current_publish_manifest(artifacts: list[ArtifactRef]) -> bool:
+    manifests = [ref for ref in artifacts if ref.stage == "package" and ref.kind == "publish_manifest" and ref.complete]
+    if not manifests:
+        return False
+    latest_manifest = max(manifests, key=lambda ref: (ref.version, ref.created_at))
+    relevant = [
+        ref for ref in artifacts if (ref.stage, ref.kind) in {("drafts", "draft"), ("drafts", "revised"), ("reviews", "format_review")}
+    ]
+    if not relevant:
+        return True
+    latest_relevant = max(relevant, key=lambda ref: ref.created_at)
+    return latest_manifest.created_at >= latest_relevant.created_at

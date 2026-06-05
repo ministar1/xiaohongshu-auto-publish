@@ -14,6 +14,8 @@ from xiaohongshu_auto_publish.config.schema import AppConfig
 from xiaohongshu_auto_publish.errors import LockError, StateError, XHSError
 from xiaohongshu_auto_publish.models import LastError, TaskMetadata, TaskStatus, now_iso, task_from_dict, to_jsonable
 
+FAILURE_STATUSES = {TaskStatus.FAILED, TaskStatus.RESEARCH_FAILED, TaskStatus.WRITING_FAILED, TaskStatus.PUBLISH_FAILED}
+
 
 @dataclass(slots=True)
 class AuditEvent:
@@ -83,6 +85,9 @@ class StateStore:
                 task = self.get_task(task_id)
                 previous = task.status
                 task.status = status
+                if status not in FAILURE_STATUSES:
+                    task.last_failed_stage = None
+                    task.last_error = None
                 task.updated_at = now_iso()
                 self._write_task_atomic(task_dir, task)
                 self.append_audit_event(

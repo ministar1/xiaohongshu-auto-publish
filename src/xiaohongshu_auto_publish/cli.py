@@ -15,8 +15,8 @@ from xiaohongshu_auto_publish.maintenance.cleanup import cleanup_workspace
 from xiaohongshu_auto_publish.models import WritingStyle
 from xiaohongshu_auto_publish.state.store import StateStore
 
-app = typer.Typer(no_args_is_help=True)
-accounts_app = typer.Typer(no_args_is_help=True)
+app = typer.Typer(no_args_is_help=True, pretty_exceptions_show_locals=False)
+accounts_app = typer.Typer(no_args_is_help=True, pretty_exceptions_show_locals=False)
 app.add_typer(accounts_app, name="accounts")
 
 ConfigOption = Annotated[Path, typer.Option("--config", help="配置文件路径")]

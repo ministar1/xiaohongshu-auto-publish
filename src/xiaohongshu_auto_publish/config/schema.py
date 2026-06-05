@@ -6,9 +6,9 @@ from pathlib import Path
 
 @dataclass(slots=True)
 class LLMConfig:
-    provider: str = "openai-compatible"
-    base_url: str = "https://api.openai.com/v1"
-    model: str = ""
+    provider: str = "deepseek"
+    base_url: str = "https://api.deepseek.com"
+    model: str = "deepseek-v4-flash"
     api_key_env: str = "XHS_AGENT_LLM_API_KEY"
     timeout_seconds: int = 60
     max_retries: int = 2

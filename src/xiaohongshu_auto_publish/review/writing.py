@@ -96,17 +96,27 @@ def _parse_writing_output(text: str, style: WritingStyle) -> WritingReviewOutput
     if not isinstance(raw, dict):
         raise LLMError("写作润色输出结构错误", "根对象必须是 JSON object", retryable=True, stage="writing")
     return WritingReviewOutput(
-        title_candidates=[str(item) for item in raw.get("title_candidates", [f"{style.value} 标题候选"])],
+        title_candidates=_string_list(raw.get("title_candidates"), [f"{style.value} 标题候选"]),
         body=str(raw.get("body", "")),
-        hashtags=[str(item) for item in raw.get("hashtags", [])],
+        hashtags=_string_list(raw.get("hashtags")),
         opening_notes=str(raw.get("opening_notes", "")),
         conversion_notes=str(raw.get("conversion_notes", "")),
         interaction_notes=str(raw.get("interaction_notes", "")),
         account_fit=str(raw.get("account_fit", "")),
-        series_suggestions=[str(item) for item in raw.get("series_suggestions", [])],
-        changes=[str(item) for item in raw.get("changes", [])],
-        confirmation_required=[str(item) for item in raw.get("confirmation_required", [])],
+        series_suggestions=_string_list(raw.get("series_suggestions")),
+        changes=_string_list(raw.get("changes")),
+        confirmation_required=_string_list(raw.get("confirmation_required")),
     )
+
+
+def _string_list(value: object, default: list[str] | None = None) -> list[str]:
+    if value is None:
+        return list(default or [])
+    if isinstance(value, list):
+        return [str(item) for item in value]
+    if isinstance(value, str):
+        return [value] if value.strip() else []
+    return [str(value)]
 
 
 def _render_revised(output: WritingReviewOutput) -> str:

@@ -18,6 +18,16 @@ def test_parser_ok_with_optional_warnings() -> None:
     assert report.parse_warnings
 
 
+def test_parser_normalizes_descriptive_severity() -> None:
+    report = parse_content_review_output(
+        '{"summary":"ok","blocking":false,"issues":[{"issue_type":"x","severity":"S2（中风险）","risk":"r","blocking":false,"suggestion":"s"}]}',
+        "task",
+        "fake",
+        [],
+    )
+    assert report.issues[0].severity == "S2"
+
+
 def test_parser_failed_invalid_json() -> None:
     report = parse_content_review_output("bad", "task", "fake", [])
     assert report.parse_status == ParseStatus.FAILED
