@@ -1,0 +1,7 @@
+account_id = "default"
+positioning = "医学与养生科普账号"
+audience = "关注健康生活方式的普通读者"
+tone = "通俗、谨慎、不过度承诺"
+forbidden_phrases = ["根治", "保证有效", "替代治疗"]
+style_examples = ["先给结论，再解释原因，最后给可执行建议"]
+conversion_strategy = "用收藏价值和系列化选题引导关注"

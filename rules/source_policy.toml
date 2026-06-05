@@ -1,0 +1,8 @@
+[trusted_sources]
+"who.int" = { category = "public_health", priority = 1 }
+"cdc.gov" = { category = "public_health", priority = 1 }
+"nih.gov" = { category = "medical_institution", priority = 2 }
+"nhc.gov.cn" = { category = "health_authority", priority = 1 }
+
+[risk_sources]
+example-spam.test = "low credibility"

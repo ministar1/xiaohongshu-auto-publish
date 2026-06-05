@@ -1,0 +1,27 @@
+[title]
+max_length = 40
+severity = "confirm"
+
+[body]
+max_length = 1200
+max_paragraph_length = 120
+severity = "warn"
+
+[hashtags]
+min_count = 2
+max_count = 8
+severity = "confirm"
+
+[emoji]
+max_count = 20
+severity = "warn"
+
+[media]
+min_items = 0
+max_items = 9
+require_cover = false
+
+[[sensitive_words]]
+word = "根治"
+severity = "block"
+reason = "医学健康内容不得承诺根治"

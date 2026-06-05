@@ -1,0 +1,43 @@
+[llm]
+provider = "openai-compatible"
+base_url = "https://api.openai.com/v1"
+model = ""
+api_key_env = "XHS_AGENT_LLM_API_KEY"
+timeout_seconds = 60
+max_retries = 2
+
+[search]
+provider = "tavily"
+api_key_env = "XHS_AGENT_TAVILY_API_KEY"
+max_results = 8
+timeout_seconds = 30
+
+[storage]
+workspace_dir = "workspace"
+artifact_version_digits = 3
+
+[retention]
+keep_recent_versions = 5
+keep_task_days = 180
+archive_dir = "workspace/archive"
+cleanup_dry_run_default = true
+
+[writing]
+default_style = "popular"
+title_candidates = 5
+enable_series_suggestions = true
+
+[source_policy]
+config_path = "rules/source_policy.toml"
+
+[format_rules]
+config_path = "rules/xhs_format_rules.toml"
+
+[account]
+profiles_dir = "accounts"
+default_account = "default"
+
+[publish]
+enabled = false
+default_channel = "manual"
+require_confirm_before_publish = true
