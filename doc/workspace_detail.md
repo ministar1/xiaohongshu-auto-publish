@@ -6,7 +6,7 @@
 
 ## 总体修改原则
 
-- 优先通过 CLI 生成、重试、审核和打包：`xhs-agent continue <task_id>`、`xhs-agent retry <task_id>`、`xhs-agent review-content <task_id>`、`xhs-agent review-format <task_id>`、`xhs-agent package <task_id>`。
+- 优先通过 CLI 生成、重试、审核和打包：`uv run xhs-agent continue <task_id>`、`uv run xhs-agent retry <task_id>`、`uv run xhs-agent review-content <task_id>`、`uv run xhs-agent review-format <task_id>`、`uv run xhs-agent package <task_id>`。
 - 可以手工修改标记为 `user_editable: true` 的 Markdown 正文内容，但不要随意修改 YAML front matter。
 - 不要手工删除或改写 `task.json`、`artifacts.jsonl`、`audit_log.jsonl`，否则任务恢复、状态展示和产物追溯会失真。
 - 产物文件按 `kind.vNNN.ext` 版本化保存。手工改当前版本可以解决文字问题；如果要保留旧稿并新增版本，应优先通过程序或 CLI 生成新版本，不建议手工追加索引。
@@ -66,7 +66,7 @@ complete: true
 | 文件 | 作用 | 如何修改 |
 | --- | --- | --- |
 | `inputs/topic.vNNN.md` | 选题入口产物，记录用户输入的主题、目标受众、写作风格等。 | 可修改正文里的选题说明、受众和补充要求。修改后继续流程会让后续审核读取更新后的内容。不要改 front matter。 |
-| `inputs/article.vNNN.md` | 导入已有文章时的原始稿件。 | 可修正文案错别字、结构和补充材料。若需要重新导入另一个文件，优先使用 `xhs-agent import`。 |
+| `inputs/article.vNNN.md` | 导入已有文章时的原始稿件。 | 可修正文案错别字、结构和补充材料。若需要重新导入另一个文件，优先使用 `uv run xhs-agent import`。 |
 
 ## research/
 
@@ -146,7 +146,7 @@ complete: true
 
 ## archive/
 
-`workspace/archive/<task_id>/` 是归档任务目录，由 `xhs-agent archive <task_id>` 移动生成。归档目录中会额外写入：
+`workspace/archive/<task_id>/` 是归档任务目录，由 `uv run xhs-agent archive <task_id>` 移动生成。归档目录中会额外写入：
 
 | 文件 | 作用 | 如何修改 |
 | --- | --- | --- |
@@ -156,12 +156,74 @@ complete: true
 
 ## 清理与恢复
 
-- 查看候选清理项：`xhs-agent cleanup --dry-run`
-- 执行清理：`xhs-agent cleanup --apply`
-- 归档任务：`xhs-agent archive <task_id>`
-- 查看状态：`xhs-agent status <task_id>`
+- 查看候选清理项：`uv run xhs-agent cleanup --dry-run`
+- 执行清理：`uv run xhs-agent cleanup --apply`
+- 归档任务：`uv run xhs-agent archive <task_id>`
+- 查看状态：`uv run xhs-agent status <task_id>`
 
 清理模块不会删除 `task.json`、`artifacts.jsonl`、`audit_log.jsonl`、最新完整产物和仍被来源链路引用的产物。手工清理时也应遵守这些边界。
+
+## 完全删除任务模板
+
+完全删除会移除任务状态、审计日志、草稿、审核报告、发布包和素材文件。删除前先确认任务不再需要追溯；如果只是想让任务不出现在活跃列表中，优先使用归档，不要物理删除。
+
+最佳实践是先通过 CLI 归档，再删除归档目录。不要直接删除 `workspace/<task_id>/`，否则不会记录 `task_archived` 审计事件和 `maintenance_log.jsonl` 维护事件。
+
+需要按任务填写的内容：
+
+| 占位项 | 填写内容 | 示例 |
+| --- | --- | --- |
+| `<task_id>` | 要删除的任务 ID，必须是 `workspace/<task_id>/task.json` 中的同一个任务 ID。 | `20260606-codex-real-run-20260606-c2aa` |
+| `<config_path>` | 配置文件路径；使用默认配置时可省略 `--config <config_path>`。 | `.\config.toml` |
+| `<workspace_dir>` | 实际工作区目录，通常来自 `config.toml` 的 `[storage].workspace_dir`。 | `.\workspace` |
+| `<archive_dir>` | 实际归档目录，通常来自 `config.toml` 的 `[retention].archive_dir`，且必须位于工作区内。 | `.\workspace\archive` |
+
+通用 PowerShell 模板：
+
+```powershell
+$taskId = '<task_id>'
+$config = '<config_path>'
+
+# 1. 确认任务存在、状态不是执行中，并检查是否仍需保留。
+uv run xhs-agent --config $config status $taskId
+
+# 2. 通过 CLI 归档。归档会写入任务审计日志和工作区维护日志。
+uv run xhs-agent --config $config archive $taskId
+
+# 3. 只允许删除归档目录内的目标任务，避免路径拼错造成越界删除。
+$archiveRoot = (Resolve-Path '<archive_dir>').Path
+$target = (Resolve-Path (Join-Path $archiveRoot $taskId)).Path
+
+if (-not $target.StartsWith($archiveRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+    throw "Refuse to delete path outside archive: $target"
+}
+
+# 4. 删除前最后核对大小和文件数量。
+Get-ChildItem -LiteralPath $target -Recurse -Force |
+    Measure-Object Length -Sum
+
+# 5. 物理删除归档后的任务目录。
+Remove-Item -LiteralPath $target -Recurse -Force
+
+# 6. 验证目录已删除，活跃任务列表中也不应再出现该任务。
+Test-Path -LiteralPath $target
+uv run xhs-agent --config $config list
+```
+
+如果使用默认 `config.toml`，也可以去掉 `--config $config`。如果任务已经在 `workspace/archive/<task_id>/` 中，从第 3 步开始执行即可。
+
+删除前检查：
+
+- `uv run xhs-agent status <task_id>` 能正常读取任务，且状态不是 `researching`、`content_reviewing`、`writing_reviewing`、`format_reviewing` 或 `publishing`。
+- 确认最新 `package/`、`drafts/`、`research/`、`reviews/` 和 `media/` 内容不再需要。
+- 确认没有另一个终端正在对同一任务执行 `continue`、`retry`、`review-*`、`package` 或 `publish`。
+- 如果 `workspace/` 根目录存在 `assets_index.<account_id>.jsonl` 且其中引用了该 `<task_id>`，删除任务目录后历史资产索引会保留一条不可回溯到文件的记录；需要按业务决定是否保留这类历史引用。
+
+删除后检查：
+
+- `Test-Path <archive_dir>\<task_id>` 返回 `False`。
+- `uv run xhs-agent list` 不再显示该任务。
+- 如需保留删除操作痕迹，保留 `workspace/maintenance_log.jsonl`；不要把它和任务目录一起手工删除。
 
 ## 常见问题处理
 
@@ -169,6 +231,6 @@ complete: true
 | --- | --- |
 | Markdown 出现逐字项目符号 | 合并为正常句子或列表项；后续版本已在写作解析处防护字符数组。 |
 | `artifacts.jsonl` 指向的文件不存在 | 优先从备份恢复文件；如果确实被清理，确认是否符合保留策略，再重新生成对应阶段产物。 |
-| `task.json` 状态与实际产物不一致 | 先用 `xhs-agent status <task_id>` 和 `audit_log.jsonl` 排查。不要直接改状态，优先使用 `retry`、`continue` 或 `rollback`。 |
+| `task.json` 状态与实际产物不一致 | 先用 `uv run xhs-agent status <task_id>` 和 `audit_log.jsonl` 排查。不要直接改状态，优先使用 `uv run xhs-agent retry`、`uv run xhs-agent continue` 或 `uv run xhs-agent rollback`。 |
 | 发布包不是最新草稿内容 | 修改 `drafts/revised.vNNN.md` 后重新执行格式审核和打包。 |
 | 素材路径校验失败 | 确认路径是任务目录内相对路径，文件存在，扩展名受支持，图片文件没有损坏。 |

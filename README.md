@@ -110,7 +110,7 @@ uv run xhs-agent topic "睡眠不足与代谢问题" --slug sleep-metabolism
 ```text
 任务 ID：20260605-sleep-metabolism-a1b2
 状态：waiting_research_edit
-下一步：xhs-agent continue 20260605-sleep-metabolism-a1b2
+下一步：uv run xhs-agent continue 20260605-sleep-metabolism-a1b2
 ```
 
 查看状态：
@@ -147,34 +147,63 @@ uv run xhs-agent import .\article.md --topic "高血压低盐饮食" --slug low-
 
 ## 常用命令
 
-```text
-xhs-agent init
-xhs-agent topic "<topic>"
-xhs-agent import <article_path>
-xhs-agent continue <task_id>
-xhs-agent retry <task_id>
-xhs-agent status <task_id>
-xhs-agent list
-xhs-agent review-content <task_id>
-xhs-agent review-writing <task_id>
-xhs-agent review-format <task_id>
-xhs-agent package <task_id>
-xhs-agent rollback <task_id> --to-phase <phase>
-xhs-agent publish <task_id>
-xhs-agent cleanup [--dry-run|--apply]
-xhs-agent archive <task_id>
-xhs-agent accounts list
-xhs-agent accounts show <account_id>
-xhs-agent config-check
-```
+所有项目命令都建议在项目根目录通过 `uv run xhs-agent ...` 执行。这样会使用 `uv sync` 创建的项目环境，不需要手动激活 `.venv`。
 
-全局参数：
+### 全局参数
+
+全局参数可以放在子命令前，例如：
 
 ```powershell
 uv run xhs-agent --config .\config.toml --set llm.timeout_seconds=120 config-check
 ```
 
+常用全局参数：
+
+| 参数 | 作用 | 可调整选择 |
+| --- | --- | --- |
+| `--config <path>` | 指定配置文件路径。 | 默认是 `config.toml`；调试时可指向临时配置，例如 `.\config.local.toml`。 |
+| `--set section.field=value` | 临时覆盖一个已声明配置字段，不改写配置文件。 | 可重复传入，例如 `--set llm.timeout_seconds=120 --set search.max_results=5`。布尔值支持 `true/false/1/0/yes/no`，整数会按目标字段转换。 |
+
 `--set` 只能覆盖已声明字段，不能新增未知字段，也不能把整个嵌套表替换成字符串。
+
+### 初始化和配置
+
+| 命令 | 作用和用法 | 可调整参数 |
+| --- | --- | --- |
+| `uv run xhs-agent init` | 初始化 `config.toml`、`.env.example`、默认账号、规则文件和 `workspace/`。已有文件默认不覆盖。 | `--overwrite` 会覆盖已有模板文件，使用前先确认本地修改已经备份或提交。 |
+| `uv run xhs-agent config-check` | 检查真实调研和 LLM 审核所需环境变量是否齐全，只显示缺失变量名，不显示密钥值。 | 可配合 `--config`、`--set llm.model=...`、`--set search.max_results=...` 做临时配置验证。 |
+| `uv run xhs-agent accounts list` | 列出可用账号画像和默认账号。 | 账号文件来自 `accounts/`，目录可通过 `--set account.profiles_dir=<dir>` 临时调整。 |
+| `uv run xhs-agent accounts show <account_id>` | 查看指定账号画像的定位、受众、语气和配置文件路径。 | `<account_id>` 对应 `accounts/<account_id>.toml` 中的 `account_id`。 |
+
+### 创建和推进任务
+
+| 命令 | 作用和用法 | 可调整参数 |
+| --- | --- | --- |
+| `uv run xhs-agent topic "<topic>"` | 从选题创建任务。密钥齐全时会进入调研服务；未配置真实密钥时会生成本地任务和选题产物，等待手动补充或后续配置。 | `--slug <slug>` 指定任务 ID 可读片段；`--account <account_id>` 选择账号；`--style popular|professional|balanced` 选择写作风格；`--audience "<读者描述>"` 临时指定受众；`--series` 标记为系列化选题；`--length <label>` 记录篇幅偏好，约定可用 `short`、`medium`、`long`。 |
+| `uv run xhs-agent import <article_path>` | 导入已有 Markdown 文章，跳过选题调研入口，直接进入内容审核入口。 | `--topic "<topic>"` 补充文章主题；`--slug <slug>` 指定任务 ID 可读片段；`--account <account_id>` 选择账号；`--style popular|professional|balanced` 选择写作风格。 |
+| `uv run xhs-agent continue <task_id>` | 按当前状态推进任务：调研确认后做内容审核、警告确认后做写作审核、草稿确认后做格式审核、格式确认后生成发布包。 | `--yes` 只确认 S2/S3、草稿确认和格式 `confirm` 这类非阻断点，不能绕过 S0/S1、解析失败、格式 `block`、素材复验失败或发布确认；`--force-parse` 记录一次诊断型解析请求，不绕过阻断；`--prompt-policy locked|latest` 控制继续使用锁定提示词还是迁移到最新提示词；`--manual-review-note "<说明>"` 记录人工复核说明。 |
+| `uv run xhs-agent status <task_id>` | 查看任务当前状态、最近产物和下一步命令。 | 只读命令；常与 `continue`、`retry` 配合使用。 |
+| `uv run xhs-agent list` | 列出工作区中的任务 ID、状态和主题。 | 工作区位置来自 `storage.workspace_dir`，可用 `--set storage.workspace_dir=<dir>` 临时切换。 |
+
+### 审核、恢复和回滚
+
+| 命令 | 作用和用法 | 可调整参数 |
+| --- | --- | --- |
+| `uv run xhs-agent review-content <task_id>` | 重新执行或直接触发内容审核，适合修改调研/草稿后重审医学和平台风险。 | 使用全局 `--set llm.timeout_seconds=<秒>`、`--set llm.max_retries=<次数>` 调整模型调用行为。 |
+| `uv run xhs-agent review-writing <task_id>` | 重新执行写作审核和润色，适合内容审核已通过但希望更新润色稿。 | 写作输出可受账号画像和 `writing.title_candidates`、`writing.enable_series_suggestions` 等配置影响。 |
+| `uv run xhs-agent review-format <task_id>` | 重新执行小红书格式审核，适合修改标题、正文、标签或素材 manifest 后复核。 | 格式规则来自 `rules/xhs_format_rules.toml`，可通过 `--set format_rules.config_path=<path>` 使用临时规则文件。 |
+| `uv run xhs-agent package <task_id> --yes` | 生成最终发布包和结构化发布清单。发布包生成阶段会重新复验素材，缺失或非法素材会硬失败。 | `--yes` 表示用户已确认进入打包；不等同于发布确认。 |
+| `uv run xhs-agent retry <task_id>` | 将失败任务恢复到 `last_failed_stage` 对应阶段，适合处理 `research_failed`、`writing_failed`、`failed` 等可恢复状态。 | `--prompt-policy locked|latest` 控制重试时继续使用锁定提示词还是迁移到最新提示词。 |
+| `uv run xhs-agent rollback <task_id> --to-phase <phase>` | 非破坏性回滚任务状态，保留已有产物和审计记录。 | `<phase>` 支持 `research`、`content`、`draft`、`format`、`package`。 |
+
+### 发布和维护
+
+| 命令 | 作用和用法 | 可调整参数 |
+| --- | --- | --- |
+| `uv run xhs-agent publish <task_id> --confirmed` | 调用当前发布通道。第一版是 `ManualPublisher`，只提示用户按最终发布包手动复制发布，不登录小红书、不访问平台发布接口。 | 必须显式传 `--confirmed`；`--yes` 不能替代发布确认。发布通道由 `publish.default_channel` 配置保留扩展位，目前默认是 `manual`。 |
+| `uv run xhs-agent cleanup --dry-run` | 预览可清理的旧版本阶段产物，不删除文件。 | 版本保留数由 `retention.keep_recent_versions` 控制；可用 `--set retention.keep_recent_versions=3` 临时调整。 |
+| `uv run xhs-agent cleanup --apply` | 删除超过保留版本数的旧阶段产物，并写入 `workspace/maintenance_log.jsonl`。 | 只清理阶段目录中的旧 `*.v*.*` 文件，不清理 `media/`、`task.json`、`artifacts.jsonl` 和 `audit_log.jsonl`。 |
+| `uv run xhs-agent archive <task_id>` | 将任务归档到 `workspace/archive`，适合让任务退出活跃列表但保留追溯材料。 | 归档目录由 `retention.archive_dir` 控制，必须位于 `storage.workspace_dir` 内。 |
 
 ## 账号画像
 
