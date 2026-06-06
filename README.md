@@ -363,7 +363,7 @@ uv run pytest
 - `uv run ruff format .`：通过
 - `uv run ruff check .`：通过
 - `uv run mypy src`：通过
-- `uv run pytest`：通过，60 个测试
+- `uv run pytest`：通过，71 个测试
 
 ## 项目结构
 
@@ -410,3 +410,5 @@ tests/
 - [doc/tasks/progress.md](doc/tasks/progress.md)：模块完成状态
 - [doc/implementation_decisions.md](doc/implementation_decisions.md)：实现决策记录
 - [doc/recovery.md](doc/recovery.md)：错误恢复手册
+- [doc/workspace_detail.md](doc/workspace_detail.md)：工作区文件作用与修改说明
+- [doc/repair_log.md](doc/repair_log.md)：修复日志

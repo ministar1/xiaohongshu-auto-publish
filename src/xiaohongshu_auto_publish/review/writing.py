@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 
 from xiaohongshu_auto_publish.account.profile import AccountProfileService
@@ -104,19 +105,40 @@ def _parse_writing_output(text: str, style: WritingStyle) -> WritingReviewOutput
         interaction_notes=str(raw.get("interaction_notes", "")),
         account_fit=str(raw.get("account_fit", "")),
         series_suggestions=_string_list(raw.get("series_suggestions")),
-        changes=_string_list(raw.get("changes")),
-        confirmation_required=_string_list(raw.get("confirmation_required")),
+        changes=_string_list(raw.get("changes"), split_compound=True),
+        confirmation_required=_string_list(raw.get("confirmation_required"), split_compound=True),
     )
 
 
-def _string_list(value: object, default: list[str] | None = None) -> list[str]:
+def _string_list(value: object, default: list[str] | None = None, split_compound: bool = False) -> list[str]:
     if value is None:
         return list(default or [])
     if isinstance(value, list):
-        return [str(item) for item in value]
+        items = [str(item) for item in value]
+        if _looks_like_character_array(items):
+            return _split_compound_items("".join(items)) if split_compound else _non_empty_list("".join(items))
+        return items
     if isinstance(value, str):
-        return [value] if value.strip() else []
+        return _split_compound_items(value) if split_compound else _non_empty_list(value)
     return [str(value)]
+
+
+def _looks_like_character_array(items: list[str]) -> bool:
+    return bool(items) and all(len(item) <= 1 for item in items)
+
+
+def _non_empty_list(value: str) -> list[str]:
+    stripped = value.strip()
+    return [stripped] if stripped else []
+
+
+def _split_compound_items(value: str) -> list[str]:
+    text = value.strip()
+    if not text:
+        return []
+    parts = re.split(r"[;；]\s*(?=(?:确认\s*\d+|[0-9]+[.．、]))", text)
+    cleaned = [part.strip(" \t\r\n;；") for part in parts if part.strip(" \t\r\n;；")]
+    return cleaned or [text]
 
 
 def _render_revised(output: WritingReviewOutput) -> str:
