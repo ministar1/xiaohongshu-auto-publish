@@ -21,3 +21,10 @@
 - 格式审核和发布包生成共用发布字段解析，避免把润色稿模板标题误判为最终标题。
 - 第一版发布命令接入 `ManualPublisher`，只记录手动发布辅助结果，不登录小红书、不访问平台发布接口。
 - 写作审核解析会识别模型返回的字符数组并合并为完整条目，避免“仍需用户确认”“系列化建议”“关键改写”等 Markdown 列表逐字换行。
+
+### 维护修复记录
+
+- 修复 `workspace` 中 Markdown 产物的逐字项目符号排版：`drafts/revised.v001.md` 的“仍需用户确认”合并为 3 条正常确认项，`package/final_package.v001.md` 中嵌入旧稿的“仍需用户确认”同步合并为正常确认项，`reviews/writing_review.v001.md` 的“系列化建议”和“关键改写”恢复为正常列表。
+- 为写作输出解析增加字符数组归一化，避免模型把句子拆成字符列表时再次生成逐字 Markdown。
+- 新增 `doc/workspace_detail.md`，说明 `workspace/` 中各类文件的作用、修改边界和清理方式。
+- 清理本地工具缓存：`.pytest_cache/`、`.ruff_cache/`、`.mypy_cache/` 和测试生成的 `__pycache__/`。

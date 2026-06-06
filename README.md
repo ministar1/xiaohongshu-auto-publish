@@ -411,4 +411,3 @@ tests/
 - [doc/implementation_decisions.md](doc/implementation_decisions.md)：实现决策记录
 - [doc/recovery.md](doc/recovery.md)：错误恢复手册
 - [doc/workspace_detail.md](doc/workspace_detail.md)：工作区文件作用与修改说明
-- [doc/repair_log.md](doc/repair_log.md)：修复日志
